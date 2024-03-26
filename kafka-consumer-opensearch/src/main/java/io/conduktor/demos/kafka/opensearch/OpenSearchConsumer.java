@@ -140,8 +140,6 @@ public class OpenSearchConsumer {
 
             // we subscribe the consumer
             consumer.subscribe(Collections.singleton("wikimedia.recentchange"));
-
-
             while(true) {
 
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(3000));
