@@ -85,6 +85,7 @@ public class OpenSearchConsumer {
             properties.put("value.deserializer", StringDeserializer.class.getName());
             properties.put("group.id", groupId);
             properties.put("auto.offset.reset", "latest");
+            properties.put("enable.auto.commit", "false"); //Enable this for manual commit
 
             // create a consumer
             return new KafkaConsumer<>(properties);
@@ -128,7 +129,9 @@ public class OpenSearchConsumer {
             log.info("CONSUMER SUBSCRIBED TO TOPIC");
 
             //main code logic
+            //Automatically the following logic does synchronous commit i.e at-least once commit
             while (true) {
+
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(3000));
 
                 int recordCount = records.count();
@@ -153,12 +156,16 @@ public class OpenSearchConsumer {
 
                         IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
 
-                        log.info(response.getId());
+//                        log.info(response.getId());
                     } catch (Exception e) {
 
                     }
 
                 }
+
+                //commit offsets after the batch is consumed
+                consumer.commitSync();
+                log.info("Offsets have been committed");
             }
         }
         //close the connection
