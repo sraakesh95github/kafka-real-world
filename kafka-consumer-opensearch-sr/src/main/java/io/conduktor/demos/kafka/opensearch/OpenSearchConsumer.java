@@ -12,6 +12,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.lucene.index.IndexReader;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.RequestOptions;
@@ -137,6 +139,9 @@ public class OpenSearchConsumer {
                 int recordCount = records.count();
                 log.info("Received " + recordCount + " record(s)");
 
+                //bulk request let's us perform the getIndex once for a bulk insertion of records
+                BulkRequest bulkRequest = new BulkRequest();
+                
                 for (ConsumerRecord<String, String> record : records) {
 
                     //strategy 1
@@ -154,13 +159,27 @@ public class OpenSearchConsumer {
                                 .source(record.value(), XContentType.JSON)
                                 .id(id);
 
-                        IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+//                        IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+
+                        bulkRequest.add(indexRequest);
 
 //                        log.info(response.getId());
                     } catch (Exception e) {
 
                     }
 
+                }
+
+                if (bulkRequest.numberOfActions() > 0) {
+                    BulkResponse bulkResponse = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+                    log.info("Inserted " + bulkResponse.getItems().length + " record(s)");
+
+                    //adding delays to increase the chances of getting bulk actions
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 //commit offsets after the batch is consumed
