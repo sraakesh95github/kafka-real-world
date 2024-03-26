@@ -1,5 +1,6 @@
 package io.conduktor.demos.kafka.opensearch;
 
+import com.google.gson.JsonParser;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -89,6 +90,16 @@ public class OpenSearchConsumer {
             return new KafkaConsumer<>(properties);
         }
 
+        private static String extractId(String json) {
+            //using Google GSON library
+            return JsonParser.parseString(json)
+                    .getAsJsonObject()
+                    .get("meta")
+                    .getAsJsonObject()
+                    .get("id")
+                    .getAsString();
+        }
+
     public static void main(String[] args) throws IOException {
 
         Logger log = LoggerFactory.getLogger(OpenSearchConsumer.class.getSimpleName());
@@ -124,13 +135,28 @@ public class OpenSearchConsumer {
                 log.info("Received " + recordCount + " record(s)");
 
                 for (ConsumerRecord<String, String> record : records) {
-                    //send the record to opensearch
-                    IndexRequest indexRequest = new IndexRequest("wikimedia")
-                            .source(record.value(), XContentType.JSON);
 
-                    IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+                    //strategy 1
+                    //define an ID using Kafka Record coordinates
 
-                    log.info(response.getId());
+//                    String id = record.topic() + "_" + record.partition() + "_" + record.offset();
+
+                    try {
+                        //strategy 2
+                        //extract the id from the JSON value
+                        String id = extractId(record.value());
+
+                        //send the record to opensearch
+                        IndexRequest indexRequest = new IndexRequest("wikimedia")
+                                .source(record.value(), XContentType.JSON)
+                                .id(id);
+
+                        IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+
+                        log.info(response.getId());
+                    } catch (Exception e) {
+
+                    }
 
                 }
             }
